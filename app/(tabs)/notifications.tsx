@@ -1,11 +1,11 @@
 import React from "react";
 import { StyleSheet, Text, View, FlatList, TouchableOpacity } from "react-native";
 import { Bell } from "lucide-react-native";
-import { useNotificationStore } from "@/store/useNotificationStore";
-import NotificationItem from "@/components/NotificationItem";
-import EmptyState from "@/components/EmptyState";
-import Colors from "@/constants/colors";
-import { notifications } from "@/constants/mockData";
+import { useNotificationStore } from "../../store/useNotificationStore";
+import NotificationItem from "../../components/NotificationItem";
+import EmptyState from "../../components/EmptyState";
+import Colors from "../../constants/colors";
+import { notifications } from "../../constants/mockData";
 
 export default function NotificationsScreen() {
   // In a real app, we would use the notification store
@@ -55,11 +55,13 @@ export default function NotificationsScreen() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <EmptyState
-          title="No Notifications"
-          message="You're all caught up! Check back later for updates."
-          icon={<Bell size={64} color={Colors.inactive} />}
-        />
+        <View style={styles.emptyStateContainer}>
+          <EmptyState
+            title="No Notifications"
+            message="You're all caught up! Check back later for updates."
+            icon={<Bell size={64} color={Colors.primary} />}
+          />
+        </View>
       )}
     </View>
   );
@@ -77,15 +79,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.highlight,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: Colors.text,
+    color: Colors.primary,
   },
   markAllButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
+    backgroundColor: Colors.highlight,
+    borderRadius: 8,
   },
   markAllText: {
     color: Colors.primary,
@@ -96,4 +102,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
+  emptyStateContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.highlight,
+  }
 });

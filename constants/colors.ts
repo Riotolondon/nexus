@@ -7,10 +7,13 @@ export default {
     text: "#1A1D1F",
     textSecondary: "#6C757D",
     border: "#E9ECEF",
-    notification: "#FF5A5F",
-    success: "#28A745",
-    warning: "#FFC107",
-    error: "#DC3545",
+    highlight: "#EBF4FF",
     inactive: "#ADB5BD",
-    highlight: "#F1F5FF",
-  };
+    success: "#4CAF50",
+    warning: "#F9A826",
+    error: "#F44336",
+    progressTrack: "#E6E8F0",
+    progressFill: "#5B7FFF",
+    cardShadow: "rgba(0, 0, 0, 0.05)",
+    cardBorder: "#E9ECEF"
+}

@@ -2,14 +2,14 @@ import React, { useState, useMemo } from "react";
 import { StyleSheet, Text, View, FlatList, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { collaborationSpaces } from "@/constants/mockData";
-import CollaborationCard from "@/components/CollaborationCard";
-import SearchBar from "@/components/SearchBar";
-import UniversitySelector from "@/components/UniversitySelector";
-import SeactionHeader from "@/components/SeactionHeader";
-import EmptyState from "@/components/EmptyState";
-import Colors from "@/constants/colors";
-import { createNavigation } from "@/utils/navigation";
+import { collaborationSpaces } from "../../constants/mockData";
+import CollaborationCard from "../../components/CollaborationCard";
+import SearchBar from "../../components/SearchBar";
+import UniversitySelector from "../../components/UniversitySelector";
+import SeactionHeader from "../../components/SeactionHeader";
+import EmptyState from "../../components/EmptyState";
+import Colors from "../../constants/colors";
+import { createNavigation } from "../../utils/navigation";
 
 export default function CollaborationScreen() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function CollaborationScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Collaboration</Text>
         <TouchableOpacity style={styles.filterButton}>
-          <Feather name="filter" size={20} color={Colors.text} />
+          <Feather name="filter" size={20} color={Colors.primary} />
         </TouchableOpacity>
       </View>
       
@@ -69,10 +69,12 @@ export default function CollaborationScreen() {
         onSelect={handleUniversitySelect}
       />
       
-      <SeactionHeader 
-        title="Active Spaces" 
-        onSeeAll={() => console.log("See all spaces")}
-      />
+      <View style={styles.headerWrapper}>
+        <SeactionHeader 
+          title="Active Spaces" 
+          onSeeAll={() => console.log("See all spaces")}
+        />
+      </View>
       
       {filteredSpaces.length > 0 ? (
         <FlatList
@@ -118,21 +120,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.highlight,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: Colors.text,
+    color: Colors.primary,
+  },
+  headerWrapper: {
+    backgroundColor: Colors.highlight,
+    paddingTop: 8,
+    marginBottom: 8,
   },
   filterButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.highlight,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.primary,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -148,10 +157,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.4,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 6,
   },
 });
