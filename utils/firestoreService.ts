@@ -1,20 +1,38 @@
 import { db } from './firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  updateDoc, 
+  deleteDoc, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  getDocs,
+  onSnapshot,
+  DocumentData as FirestoreDocumentData,
+  QueryConstraint as FirestoreQueryConstraint,
+  Timestamp
+} from 'firebase/firestore';
 
 // Define types for Firestore data
 export type DocumentData = Record<string, any>;
-export type QueryConstraint = any;
+export type QueryConstraint = FirestoreQueryConstraint;
 
 // Add a document to a collection with auto-generated ID
 export const addDocument = async (collectionName: string, data: any) => {
   try {
-    const collectionRef = db.collection(collectionName);
+    const collectionRef = collection(db, collectionName);
     const documentData = {
       ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
-    const docRef = await collectionRef.add(documentData);
+    const docRef = await addDoc(collectionRef, documentData);
     return docRef.id;
   } catch (error: any) {
     console.error(`Error adding document to ${collectionName}:`, error);
@@ -25,14 +43,14 @@ export const addDocument = async (collectionName: string, data: any) => {
 // Set a document with a specific ID
 export const setDocument = async (collectionName: string, docId: string, data: any) => {
   try {
-    const docRef = db.collection(collectionName).doc(docId);
+    const docRef = doc(db, collectionName, docId);
     const documentData = {
       ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
-    await docRef.set(documentData);
+    await setDoc(docRef, documentData);
     return docId;
   } catch (error: any) {
     console.error(`Error setting document ${docId} in ${collectionName}:`, error);
@@ -43,13 +61,13 @@ export const setDocument = async (collectionName: string, docId: string, data: a
 // Update a document
 export const updateDocument = async (collectionName: string, docId: string, data: any) => {
   try {
-    const docRef = db.collection(collectionName).doc(docId);
+    const docRef = doc(db, collectionName, docId);
     const updateData = {
       ...data,
       updatedAt: new Date().toISOString()
     };
     
-    await docRef.update(updateData);
+    await updateDoc(docRef, updateData);
     return docId;
   } catch (error: any) {
     console.error(`Error updating document ${docId} in ${collectionName}:`, error);
@@ -60,8 +78,8 @@ export const updateDocument = async (collectionName: string, docId: string, data
 // Delete a document
 export const deleteDocument = async (collectionName: string, docId: string) => {
   try {
-    const docRef = db.collection(collectionName).doc(docId);
-    await docRef.delete();
+    const docRef = doc(db, collectionName, docId);
+    await deleteDoc(docRef);
     return true;
   } catch (error: any) {
     console.error(`Error deleting document ${docId} from ${collectionName}:`, error);
@@ -72,10 +90,10 @@ export const deleteDocument = async (collectionName: string, docId: string) => {
 // Get a document by ID
 export const getDocument = async (collectionName: string, docId: string) => {
   try {
-    const docRef = db.collection(collectionName).doc(docId);
-    const docSnap = await docRef.get();
+    const docRef = doc(db, collectionName, docId);
+    const docSnap = await getDoc(docRef);
     
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() };
     } else {
       return null;
@@ -92,20 +110,13 @@ export const queryDocuments = async (
   constraints: QueryConstraint[] = []
 ) => {
   try {
-    let queryRef = db.collection(collectionName);
+    const collectionRef = collection(db, collectionName);
+    let queryRef = query(collectionRef, ...constraints);
     
-    // Apply constraints (not fully implemented in mock)
-    // In the mock, these just return the collection reference
-    constraints.forEach(constraint => {
-      if (typeof constraint === 'function') {
-        queryRef = constraint(queryRef);
-      }
-    });
-    
-    const querySnapshot = await queryRef.get();
+    const querySnapshot = await getDocs(queryRef);
     
     const documents: DocumentData[] = [];
-    querySnapshot.docs.forEach((doc) => {
+    querySnapshot.forEach((doc) => {
       documents.push({ id: doc.id, ...doc.data() });
     });
     
@@ -116,28 +127,48 @@ export const queryDocuments = async (
   }
 };
 
-// Subscribe to a document (mock implementation)
+// Subscribe to a document
 export const subscribeToDocument = (
   collectionName: string,
   docId: string,
   callback: (data: DocumentData | null) => void
 ) => {
-  // Initial read
-  getDocument(collectionName, docId).then(callback).catch(console.error);
+  const docRef = doc(db, collectionName, docId);
   
-  // Return unsubscribe function
-  return () => {};
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback({ id: docSnap.id, ...docSnap.data() });
+    } else {
+      callback(null);
+    }
+  }, (error) => {
+    console.error(`Error subscribing to document ${docId} in ${collectionName}:`, error);
+    callback(null);
+  });
 };
 
-// Subscribe to a collection (mock implementation)
+// Subscribe to a collection
 export const subscribeToCollection = (
   collectionName: string,
   constraints: QueryConstraint[] = [],
   callback: (data: DocumentData[]) => void
 ) => {
-  // Initial read
-  queryDocuments(collectionName, constraints).then(callback).catch(console.error);
-  
-  // Return unsubscribe function
-  return () => {};
+  try {
+    const collectionRef = collection(db, collectionName);
+    let queryRef = query(collectionRef, ...constraints);
+    
+    return onSnapshot(queryRef, (querySnapshot) => {
+      const documents: DocumentData[] = [];
+      querySnapshot.forEach((doc) => {
+        documents.push({ id: doc.id, ...doc.data() });
+      });
+      callback(documents);
+    }, (error) => {
+      console.error(`Error subscribing to collection ${collectionName}:`, error);
+      callback([]);
+    });
+  } catch (error) {
+    console.error(`Error setting up subscription to ${collectionName}:`, error);
+    return () => {}; // Return empty unsubscribe function
+  }
 }; 

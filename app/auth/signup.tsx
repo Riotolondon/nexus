@@ -58,7 +58,7 @@ export default function SignupScreen() {
     
     try {
       await register(email, password, name, selectedUniversity);
-      router.replace(createNavigation("(tabs)"));
+      router.replace(createNavigation("auth/interests"));
     } catch (error: any) {
       console.error("Registration error:", error);
       let errorMessage = "Failed to create account. Please try again.";

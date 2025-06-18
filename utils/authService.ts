@@ -1,23 +1,24 @@
-import { auth, updateProfile } from './firebase';
+import { 
+  auth, 
+  updateProfile 
+} from './firebase';
+import {
+  createUserWithEmailAndPassword as firebaseCreateUser,
+  signInWithEmailAndPassword as firebaseSignIn,
+  signOut as firebaseSignOut,
+  sendPasswordResetEmail as firebaseSendPasswordReset,
+  User as FirebaseAuthUser,
+  UserCredential
+} from 'firebase/auth';
 
 // Define a type for Firebase User
-export type FirebaseUser = {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  emailVerified: boolean;
-  isAnonymous: boolean;
-  metadata: {
-    creationTime: string;
-    lastSignInTime: string;
-  };
-};
+export type FirebaseUser = FirebaseAuthUser;
 
 // Register a new user
 export const registerUser = async (email: string, password: string, displayName: string) => {
   try {
     console.log("Registering user with email:", email);
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+    const userCredential: UserCredential = await firebaseCreateUser(auth, email, password);
     
     // Update profile with display name
     if (userCredential.user) {
@@ -36,7 +37,7 @@ export const registerUser = async (email: string, password: string, displayName:
 export const signInUser = async (email: string, password: string) => {
   try {
     console.log("Signing in user with email:", email);
-    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+    const userCredential: UserCredential = await firebaseSignIn(auth, email, password);
     console.log("User signed in successfully:", userCredential.user.uid);
     return userCredential.user;
   } catch (error: any) {
@@ -50,7 +51,7 @@ export const signOutUser = async () => {
   console.log("signOutUser function called in authService");
   try {
     console.log("Starting signOut");
-    await auth.signOut();
+    await firebaseSignOut(auth);
     console.log("signOut completed successfully");
     return true;
   } catch (error: any) {
@@ -62,7 +63,7 @@ export const signOutUser = async () => {
 // Reset password
 export const resetPassword = async (email: string) => {
   try {
-    await auth.sendPasswordResetEmail(email);
+    await firebaseSendPasswordReset(auth, email);
     console.log("Password reset email sent to:", email);
     return true;
   } catch (error: any) {
