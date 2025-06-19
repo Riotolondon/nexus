@@ -1,17 +1,156 @@
-import React, { useState } from "react";
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Users, MessageSquare, Share2, Calendar, Send } from "lucide-react-native";
 import { collaborationSpaces } from "@/constants/mockData";
 import Colors from "@/constants/colors";
+import { useCollaborationStore, CollaborationSpace, Message } from "@/store/useCollaborationStore";
+import { useUserStore } from "@/store/useUserStore";
+import { formatDistanceToNow } from "date-fns";
+import { createNavigation } from "@/utils/navigation";
 
 export default function CollaborationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Find the collaboration space with the matching ID
-  const space = collaborationSpaces.find((s) => s.id === id);
+  // Get user and collaboration state
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const userId = useUserStore((state) => state.userId);
+  const { getSpace, joinSpace, sendMessage, spaces } = useCollaborationStore();
   
+  // Get the space data
+  const [space, setSpace] = useState<CollaborationSpace | null>(null);
+  const [hasJoined, setHasJoined] = useState(false);
+  
+  // Load space data and check if user has joined
+  useEffect(() => {
+    // First try to get from the store
+    let spaceData = getSpace(id);
+    
+    if (!spaceData) {
+      // If not in store, try to get from mock data and convert
+      const mockSpace = collaborationSpaces.find((s) => s.id === id);
+      
+      if (mockSpace) {
+        spaceData = {
+          id: mockSpace.id,
+          title: mockSpace.title,
+          description: mockSpace.description,
+          creatorId: "mock-user-id",
+          members: mockSpace.members,
+          universities: mockSpace.universities,
+          tags: mockSpace.tags,
+          isActive: mockSpace.isActive,
+          createdAt: new Date().toISOString(),
+          messages: [],
+          participants: []
+        };
+        
+        // Add to store
+        useCollaborationStore.setState(state => ({
+          spaces: [...state.spaces, spaceData!]
+        }));
+      }
+    }
+    
+    setSpace(spaceData || null);
+    
+    // Check if user has joined
+    if (spaceData && userId) {
+      setHasJoined(spaceData.participants.includes(userId));
+    }
+    
+    setIsLoading(false);
+  }, [id, spaces, userId]);
+  
+  // Format timestamp for display
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    } catch (error) {
+      return "recently";
+    }
+  };
+  
+  const handleSendMessage = () => {
+    if (!isLoggedIn) {
+      Alert.alert(
+        "Login Required",
+        "You need to be logged in to send messages.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Login", 
+            onPress: () => router.push(createNavigation("auth/login"))
+          }
+        ]
+      );
+      return;
+    }
+    
+    if (!hasJoined) {
+      Alert.alert(
+        "Join Required",
+        "You need to join this space to send messages.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Join", 
+            onPress: handleJoinSpace
+          }
+        ]
+      );
+      return;
+    }
+    
+    if (message.trim()) {
+      try {
+        sendMessage(id, message.trim());
+        setMessage("");
+      } catch (error) {
+        Alert.alert("Error", "Failed to send message. Please try again.");
+        console.error("Error sending message:", error);
+      }
+    }
+  };
+
+  const handleJoinSpace = () => {
+    if (!isLoggedIn) {
+      Alert.alert(
+        "Login Required",
+        "You need to be logged in to join a collaboration space.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Login", 
+            onPress: () => router.push(createNavigation("auth/login"))
+          }
+        ]
+      );
+      return;
+    }
+    
+    try {
+      joinSpace(id);
+      setHasJoined(true);
+      Alert.alert("Success", "You have joined this collaboration space!");
+    } catch (error) {
+      Alert.alert("Error", "Failed to join space. Please try again.");
+      console.error("Error joining space:", error);
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Loading space...</Text>
+      </View>
+    );
+  }
+
   if (!space) {
     return (
       <View style={styles.container}>
@@ -19,17 +158,6 @@ export default function CollaborationDetailScreen() {
       </View>
     );
   }
-
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      console.log("Sending message:", message);
-      setMessage("");
-    }
-  };
-
-  const handleJoinSpace = () => {
-    console.log("Joining collaboration space");
-  };
 
   return (
     <View style={styles.container}>
@@ -86,41 +214,64 @@ export default function CollaborationDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Discussion</Text>
           <View style={styles.discussionContainer}>
-            <View style={styles.messageContainer}>
-              <View style={styles.messageBubble}>
-                <Text style={styles.messageAuthor}>Sarah M. (UCT)</Text>
-                <Text style={styles.messageText}>
-                  Has anyone started working on the research proposal template?
+            {space.messages.length === 0 ? (
+              <View style={styles.emptyMessages}>
+                <MessageSquare size={40} color={Colors.textSecondary} />
+                <Text style={styles.emptyMessagesText}>
+                  No messages yet. Be the first to start the conversation!
                 </Text>
-                <Text style={styles.messageTime}>Yesterday, 14:32</Text>
               </View>
-            </View>
-            
-            <View style={[styles.messageContainer, styles.ownMessage]}>
-              <View style={[styles.messageBubble, styles.ownMessageBubble]}>
-                <Text style={[styles.messageAuthor, styles.ownMessageAuthor]}>You</Text>
-                <Text style={[styles.messageText, styles.ownMessageText]}>
-                  I've created a draft based on our last meeting. I'll share it tomorrow.
-                </Text>
-                <Text style={[styles.messageTime, styles.ownMessageTime]}>Yesterday, 15:05</Text>
-              </View>
-            </View>
-            
-            <View style={styles.messageContainer}>
-              <View style={styles.messageBubble}>
-                <Text style={styles.messageAuthor}>Thabo K. (Wits)</Text>
-                <Text style={styles.messageText}>
-                  Great! I can help with the literature review section.
-                </Text>
-                <Text style={styles.messageTime}>Yesterday, 16:17</Text>
-              </View>
-            </View>
+            ) : (
+              space.messages.map((msg) => (
+                <View 
+                  key={msg.id} 
+                  style={[
+                    styles.messageContainer,
+                    msg.authorId === userId && styles.ownMessage
+                  ]}
+                >
+                  <View 
+                    style={[
+                      styles.messageBubble,
+                      msg.authorId === userId && styles.ownMessageBubble
+                    ]}
+                  >
+                    <Text 
+                      style={[
+                        styles.messageAuthor,
+                        msg.authorId === userId && styles.ownMessageAuthor
+                      ]}
+                    >
+                      {msg.authorId === userId ? "You" : `${msg.authorName} (${msg.authorUniversity})`}
+                    </Text>
+                    <Text 
+                      style={[
+                        styles.messageText,
+                        msg.authorId === userId && styles.ownMessageText
+                      ]}
+                    >
+                      {msg.text}
+                    </Text>
+                    <Text 
+                      style={[
+                        styles.messageTime,
+                        msg.authorId === userId && styles.ownMessageTime
+                      ]}
+                    >
+                      {formatTimestamp(msg.timestamp)}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         </View>
         
-        <TouchableOpacity style={styles.joinButton} onPress={handleJoinSpace}>
-          <Text style={styles.joinButtonText}>Join Collaboration Space</Text>
-        </TouchableOpacity>
+        {!hasJoined && (
+          <TouchableOpacity style={styles.joinButton} onPress={handleJoinSpace}>
+            <Text style={styles.joinButtonText}>Join Collaboration Space</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
       
       <View style={styles.inputContainer}>
@@ -131,16 +282,17 @@ export default function CollaborationDetailScreen() {
           onChangeText={setMessage}
           multiline
           placeholderTextColor={Colors.textSecondary}
+          editable={hasJoined}
         />
         <TouchableOpacity 
           style={[
             styles.sendButton,
-            !message.trim() && styles.sendButtonDisabled
+            (!message.trim() || !hasJoined) && styles.sendButtonDisabled
           ]} 
           onPress={handleSendMessage}
-          disabled={!message.trim()}
+          disabled={!message.trim() || !hasJoined}
         >
-          <Send size={20} color={message.trim() ? "#FFFFFF" : Colors.inactive} />
+          <Send size={20} color={message.trim() && hasJoined ? "#FFFFFF" : Colors.inactive} />
         </TouchableOpacity>
       </View>
     </View>
@@ -364,5 +516,24 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: "center",
     marginTop: 40,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 18,
+    color: Colors.primary,
+    marginTop: 20,
+  },
+  emptyMessages: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyMessagesText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginTop: 12,
   },
 });

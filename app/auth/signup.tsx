@@ -57,10 +57,18 @@ export default function SignupScreen() {
     setError("");
     
     try {
+      console.log("Starting registration process with:", { email, name, university: selectedUniversity.name });
       await register(email, password, name, selectedUniversity);
+      console.log("Registration successful, navigating to interests screen");
       router.replace(createNavigation("auth/interests"));
     } catch (error: any) {
-      console.error("Registration error:", error);
+      console.error("Registration error details:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+        fullError: JSON.stringify(error, null, 2)
+      });
+      
       let errorMessage = "Failed to create account. Please try again.";
       
       // Handle specific Firebase auth errors
@@ -70,9 +78,14 @@ export default function SignupScreen() {
         errorMessage = "Please enter a valid email address.";
       } else if (error.code === 'auth/weak-password') {
         errorMessage = "Password is too weak. Please use a stronger password.";
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.code) {
+        errorMessage = `Error: ${error.code}. ${error.message || ''}`;
       }
       
       setError(errorMessage);
+      Alert.alert("Registration Error", errorMessage);
     } finally {
       setLoading(false);
     }

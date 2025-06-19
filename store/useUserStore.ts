@@ -76,33 +76,60 @@ export const useUserStore = create<UserState>()(
       
       // Register a new user
       register: async (email, password, name, university) => {
+        let user = null;
+        
         try {
-          // Register with Firebase Auth
-          const user = await registerUser(email, password, name);
-          if (user) {
-            // Create user profile in Firestore
+          console.log("Register function called with:", { email, name, university: university.name });
+          
+          // Step 1: Register with Firebase Auth
+          console.log("Calling registerUser function from authService...");
+          try {
+            user = await registerUser(email, password, name);
+            console.log("Firebase Auth registration successful:", user?.uid);
+          } catch (authError: any) {
+            console.error("Firebase Auth registration failed:", authError);
+            throw authError;
+          }
+          
+          if (!user) {
+            const error = new Error("Registration failed: No user returned");
+            console.error(error);
+            throw error;
+          }
+          
+          // Step 2: Create user profile in Firestore
+          console.log("Creating user profile in Firestore...");
+          try {
             await setDocument('users', user.uid, {
               name,
               email,
               university,
               createdAt: new Date(),
             });
-            
-            // Update local state
-            set({
-              isLoggedIn: true,
-              userId: user.uid,
-              name,
-              email,
-              university,
-              studyField: null,
-              yearOfStudy: null,
-              profilePicture: null,
-              interests: [],
-            });
+            console.log("Firestore document created successfully");
+          } catch (firestoreError: any) {
+            console.error("Error creating Firestore document:", firestoreError);
+            // We don't throw here to allow the user to be created even if Firestore fails
+            // The profile can be updated later
           }
-        } catch (error) {
-          console.error('Registration error:', error);
+          
+          // Step 3: Update local state
+          console.log("Updating local state...");
+          set({
+            isLoggedIn: true,
+            userId: user.uid,
+            name,
+            email,
+            university,
+            studyField: null,
+            yearOfStudy: null,
+            profilePicture: null,
+            interests: [],
+          });
+          
+          console.log("Registration process completed successfully");
+        } catch (error: any) {
+          console.error('Registration error in useUserStore:', error);
           throw error;
         }
       },

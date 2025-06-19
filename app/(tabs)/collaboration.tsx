@@ -1,23 +1,70 @@
-import React, { useState, useMemo } from "react";
-import { StyleSheet, Text, View, FlatList, TouchableOpacity } from "react-native";
+import React, { useState, useMemo, useEffect } from "react";
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { collaborationSpaces } from "../../constants/mockData";
 import CollaborationCard from "../../components/CollaborationCard";
 import SearchBar from "../../components/SearchBar";
 import UniversitySelector from "../../components/UniversitySelector";
 import SeactionHeader from "../../components/SeactionHeader";
 import EmptyState from "../../components/EmptyState";
+import CreateSpaceModal from "../../components/CreateSpaceModal";
 import Colors from "../../constants/colors";
 import { createNavigation } from "../../utils/navigation";
+import { useCollaborationStore, CollaborationSpace } from "../../store/useCollaborationStore";
+import { useUserStore } from "../../store/useUserStore";
+import { collaborationSpaces as mockSpaces } from "../../constants/mockData";
 
 export default function CollaborationScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUniversity, setSelectedUniversity] = useState<string | null>(null);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  
+  // Get user and collaboration state
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const { spaces, createSpace, joinSpace } = useCollaborationStore();
+  
+  // Initialize with mock data if store is empty
+  useEffect(() => {
+    if (spaces.length === 0) {
+      try {
+        console.log("Initializing mock data for collaboration spaces");
+        
+        // Convert mock data to our store format
+        const initialSpaces: CollaborationSpace[] = mockSpaces.map(space => ({
+          id: space.id,
+          title: space.title,
+          description: space.description,
+          creatorId: "mock-user-id",
+          members: space.members,
+          universities: space.universities,
+          tags: space.tags,
+          isActive: space.isActive,
+          createdAt: new Date().toISOString(),
+          messages: [],
+          participants: []
+        }));
+        
+        // Add mock spaces to store one by one
+        initialSpaces.forEach(space => {
+          try {
+            useCollaborationStore.setState(state => ({
+              spaces: [...state.spaces, space]
+            }));
+          } catch (error) {
+            console.error("Error adding mock space:", error);
+          }
+        });
+        
+        console.log("Mock data initialization complete:", initialSpaces.length, "spaces added");
+      } catch (error) {
+        console.error("Error during mock data initialization:", error);
+      }
+    }
+  }, []);
   
   const filteredSpaces = useMemo(() => {
-    return collaborationSpaces.filter((space) => {
+    return spaces.filter((space) => {
       const matchesSearch = 
         space.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         space.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -29,7 +76,7 @@ export default function CollaborationScreen() {
       
       return matchesSearch && matchesUniversity;
     });
-  }, [searchQuery, selectedUniversity]);
+  }, [searchQuery, selectedUniversity, spaces]);
 
   const handleSpacePress = (id: string) => {
     router.push(createNavigation(`collaboration/${id}`));
@@ -44,8 +91,49 @@ export default function CollaborationScreen() {
   };
 
   const handleCreateSpace = () => {
-    // In a real app, this would navigate to a create space screen
-    console.log("Create new collaboration space");
+    if (!isLoggedIn) {
+      Alert.alert(
+        "Login Required",
+        "You need to be logged in to create a collaboration space.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Login", 
+            onPress: () => router.push(createNavigation("auth/login"))
+          }
+        ]
+      );
+      return;
+    }
+    
+    setIsCreateModalVisible(true);
+  };
+  
+  const handleCreateSpaceSubmit = (spaceData: {
+    title: string;
+    description: string;
+    universities: string[];
+    tags: string[];
+  }) => {
+    try {
+      console.log("Creating new space with data:", spaceData);
+      
+      // Create the space
+      const spaceId = createSpace(spaceData);
+      console.log("Space created successfully with ID:", spaceId);
+      
+      // Close modal
+      setIsCreateModalVisible(false);
+      
+      // Navigate to the new space
+      router.push(createNavigation(`collaboration/${spaceId}`));
+    } catch (error) {
+      console.error("Error creating space:", error);
+      Alert.alert(
+        "Error", 
+        `Failed to create collaboration space: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`
+      );
+    }
   };
 
   return (
@@ -104,6 +192,12 @@ export default function CollaborationScreen() {
       <TouchableOpacity style={styles.createButton} onPress={handleCreateSpace}>
         <Feather name="plus" size={24} color="#FFFFFF" />
       </TouchableOpacity>
+      
+      <CreateSpaceModal
+        visible={isCreateModalVisible}
+        onClose={() => setIsCreateModalVisible(false)}
+        onSubmit={handleCreateSpaceSubmit}
+      />
     </View>
   );
 }

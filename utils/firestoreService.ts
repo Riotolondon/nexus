@@ -2,37 +2,57 @@ import { db } from './firebase';
 import { 
   collection, 
   doc, 
+  addDoc, 
   setDoc, 
-  getDoc, 
   updateDoc, 
   deleteDoc, 
-  addDoc, 
+  getDoc, 
+  getDocs, 
   query, 
   where, 
   orderBy, 
   limit, 
-  getDocs,
   onSnapshot,
-  DocumentData as FirestoreDocumentData,
-  QueryConstraint as FirestoreQueryConstraint,
-  Timestamp
+  serverTimestamp,
+  DocumentData as FirebaseDocumentData,
+  QueryConstraint as FirebaseQueryConstraint,
+  WhereFilterOp,
+  OrderByDirection,
+  Query,
+  DocumentReference,
+  DocumentSnapshot,
+  QuerySnapshot
 } from 'firebase/firestore';
 
 // Define types for Firestore data
 export type DocumentData = Record<string, any>;
-export type QueryConstraint = FirestoreQueryConstraint;
+export type QueryConstraint = {
+  type: 'where' | 'orderBy' | 'limit';
+  field?: string;
+  operator?: WhereFilterOp;
+  value?: any;
+  direction?: OrderByDirection;
+};
 
 // Add a document to a collection with auto-generated ID
 export const addDocument = async (collectionName: string, data: any) => {
   try {
-    const collectionRef = collection(db, collectionName);
+    console.log(`Adding document to ${collectionName}:`, data);
+    
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    
     const documentData = {
       ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     
+    const collectionRef = collection(db, collectionName);
     const docRef = await addDoc(collectionRef, documentData);
+    console.log(`Document added successfully with ID: ${docRef.id}`);
     return docRef.id;
   } catch (error: any) {
     console.error(`Error adding document to ${collectionName}:`, error);
@@ -43,14 +63,23 @@ export const addDocument = async (collectionName: string, data: any) => {
 // Set a document with a specific ID
 export const setDocument = async (collectionName: string, docId: string, data: any) => {
   try {
-    const docRef = doc(db, collectionName, docId);
+    console.log(`Setting document in ${collectionName} with ID ${docId}:`, data);
+    
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    
     const documentData = {
       ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: data.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     
+    const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, documentData);
+    
+    console.log(`Document ${docId} set successfully in ${collectionName}`);
     return docId;
   } catch (error: any) {
     console.error(`Error setting document ${docId} in ${collectionName}:`, error);
@@ -61,12 +90,17 @@ export const setDocument = async (collectionName: string, docId: string, data: a
 // Update a document
 export const updateDocument = async (collectionName: string, docId: string, data: any) => {
   try {
-    const docRef = doc(db, collectionName, docId);
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    
     const updateData = {
       ...data,
-      updatedAt: new Date().toISOString()
+      updatedAt: serverTimestamp()
     };
     
+    const docRef = doc(db, collectionName, docId);
     await updateDoc(docRef, updateData);
     return docId;
   } catch (error: any) {
@@ -78,6 +112,11 @@ export const updateDocument = async (collectionName: string, docId: string, data
 // Delete a document
 export const deleteDocument = async (collectionName: string, docId: string) => {
   try {
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    
     const docRef = doc(db, collectionName, docId);
     await deleteDoc(docRef);
     return true;
@@ -90,6 +129,11 @@ export const deleteDocument = async (collectionName: string, docId: string) => {
 // Get a document by ID
 export const getDocument = async (collectionName: string, docId: string) => {
   try {
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    
     const docRef = doc(db, collectionName, docId);
     const docSnap = await getDoc(docRef);
     
@@ -110,10 +154,29 @@ export const queryDocuments = async (
   constraints: QueryConstraint[] = []
 ) => {
   try {
-    const collectionRef = collection(db, collectionName);
-    let queryRef = query(collectionRef, ...constraints);
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
     
-    const querySnapshot = await getDocs(queryRef);
+    const collectionRef = collection(db, collectionName);
+    
+    // Build query constraints
+    const queryConstraints: FirebaseQueryConstraint[] = [];
+    
+    for (const constraint of constraints) {
+      if (constraint.type === 'where' && constraint.field && constraint.operator) {
+        queryConstraints.push(where(constraint.field, constraint.operator, constraint.value));
+      } else if (constraint.type === 'orderBy' && constraint.field && constraint.direction) {
+        queryConstraints.push(orderBy(constraint.field, constraint.direction));
+      } else if (constraint.type === 'limit' && constraint.value) {
+        queryConstraints.push(limit(constraint.value));
+      }
+    }
+    
+    // Create and execute query
+    const q = query(collectionRef, ...queryConstraints);
+    const querySnapshot = await getDocs(q);
     
     const documents: DocumentData[] = [];
     querySnapshot.forEach((doc) => {
@@ -133,18 +196,28 @@ export const subscribeToDocument = (
   docId: string,
   callback: (data: DocumentData | null) => void
 ) => {
+  if (!db) {
+    console.error("Firestore is not initialized");
+    callback(null);
+    return () => {};
+  }
+  
   const docRef = doc(db, collectionName, docId);
   
-  return onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      callback({ id: docSnap.id, ...docSnap.data() });
-    } else {
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        callback({ id: docSnap.id, ...docSnap.data() });
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      console.error(`Error subscribing to document ${docId} in ${collectionName}:`, error);
       callback(null);
     }
-  }, (error) => {
-    console.error(`Error subscribing to document ${docId} in ${collectionName}:`, error);
-    callback(null);
-  });
+  );
 };
 
 // Subscribe to a collection
@@ -154,19 +227,45 @@ export const subscribeToCollection = (
   callback: (data: DocumentData[]) => void
 ) => {
   try {
-    const collectionRef = collection(db, collectionName);
-    let queryRef = query(collectionRef, ...constraints);
-    
-    return onSnapshot(queryRef, (querySnapshot) => {
-      const documents: DocumentData[] = [];
-      querySnapshot.forEach((doc) => {
-        documents.push({ id: doc.id, ...doc.data() });
-      });
-      callback(documents);
-    }, (error) => {
-      console.error(`Error subscribing to collection ${collectionName}:`, error);
+    if (!db) {
+      console.error("Firestore is not initialized");
       callback([]);
-    });
+      return () => {};
+    }
+    
+    const collectionRef = collection(db, collectionName);
+    
+    // Build query constraints
+    const queryConstraints: FirebaseQueryConstraint[] = [];
+    
+    for (const constraint of constraints) {
+      if (constraint.type === 'where' && constraint.field && constraint.operator) {
+        queryConstraints.push(where(constraint.field, constraint.operator, constraint.value));
+      } else if (constraint.type === 'orderBy' && constraint.field && constraint.direction) {
+        queryConstraints.push(orderBy(constraint.field, constraint.direction));
+      } else if (constraint.type === 'limit' && constraint.value) {
+        queryConstraints.push(limit(constraint.value));
+      }
+    }
+    
+    // Create query
+    const q = query(collectionRef, ...queryConstraints);
+    
+    // Subscribe to query
+    return onSnapshot(
+      q,
+      (querySnapshot) => {
+        const documents: DocumentData[] = [];
+        querySnapshot.forEach((doc) => {
+          documents.push({ id: doc.id, ...doc.data() });
+        });
+        callback(documents);
+      },
+      (error) => {
+        console.error(`Error subscribing to collection ${collectionName}:`, error);
+        callback([]);
+      }
+    );
   } catch (error) {
     console.error(`Error setting up subscription to ${collectionName}:`, error);
     return () => {}; // Return empty unsubscribe function
