@@ -1,85 +1,17 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, Image, TouchableOpacity, ActivityIndicator } from "react-native";
+import React from "react";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useUserStore } from "@/store/useUserStore";
-import Colors from "@/constants/colors";
-import { createNavigation } from "@/utils/navigation";
-import { subscribeToAuthChanges } from "@/utils/authService";
-import { testFirebaseConnection } from "@/utils/firebaseTest";
+import Colors from "../constants/colors";
 
-export default function WelcomeScreen() {
+export default function Index() {
   const router = useRouter();
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [firebaseStatus, setFirebaseStatus] = useState<any>(null);
-
-  // Test Firebase connection
-  useEffect(() => {
-    const testFirebase = async () => {
-      try {
-        const status = await testFirebaseConnection();
-        console.log("Firebase connection test result:", status);
-        setFirebaseStatus(status);
-      } catch (error: any) {
-        console.error("Error testing Firebase connection:", error);
-        setFirebaseStatus({ success: false, error: error.message });
-      }
-    };
-    
-    testFirebase();
-  }, []);
-
-  useEffect(() => {
-    console.log("Index screen - checking auth state");
-    
-    // Set up a listener for auth state changes
-    const unsubscribe = subscribeToAuthChanges((user) => {
-      console.log("Auth state changed:", user ? "logged in" : "logged out");
-      setIsCheckingAuth(false);
-      
-      // If user is already logged in, redirect to main app
-      if (user) {
-        console.log("User is logged in, redirecting to tabs");
-        router.replace(createNavigation("(tabs)"));
-      }
-    });
-    
-    // Clean up the listener
-    return () => unsubscribe();
-  }, []);
-
-  // Also check the store state for logged in status
-  useEffect(() => {
-    if (isLoggedIn && !isCheckingAuth) {
-      console.log("User is logged in according to store, redirecting to tabs");
-      router.replace(createNavigation("(tabs)"));
-    }
-  }, [isLoggedIn, isCheckingAuth]);
 
   const handleGetStarted = () => {
-    router.push(createNavigation("auth/login"));
+    console.log("Navigating to login page");
+    router.push("/auth/login");
   };
-
-  if (isCheckingAuth) {
-    return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <StatusBar style="light" />
-        <LinearGradient
-          colors={["#5B7FFF", "#3D5BFF"]}
-          style={styles.background}
-        />
-        <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>Checking login status...</Text>
-        {firebaseStatus && (
-          <Text style={[styles.loadingText, { marginTop: 8, fontSize: 14 }]}>
-            Firebase: {firebaseStatus.success ? "Connected" : "Connection Error"}
-          </Text>
-        )}
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -88,13 +20,6 @@ export default function WelcomeScreen() {
         colors={["#5B7FFF", "#3D5BFF"]}
         style={styles.background}
       />
-      
-      <View style={styles.logoContainer}>
-        <Image
-          source={{ uri: "https://images.unsplash.com/photo-1581726707445-75cbe4efc586?q=80&w=200&auto=format&fit=crop" }}
-          style={styles.logo}
-        />
-      </View>
       
       <View style={styles.contentContainer}>
         <Text style={styles.title}>Solus Nexus</Text>
@@ -122,32 +47,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 12,
-    fontSize: 16,
-  },
   background: {
     position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginTop: 80,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
   },
   contentContainer: {
     flex: 1,

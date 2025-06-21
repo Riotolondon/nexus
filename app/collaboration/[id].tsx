@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Users, MessageSquare, Share2, Calendar, Send } from "lucide-react-native";
+import { Users, MessageSquare, Share2, Calendar, Send, ArrowLeft } from "lucide-react-native";
 import { collaborationSpaces } from "@/constants/mockData";
 import Colors from "@/constants/colors";
 import { useCollaborationStore, CollaborationSpace, Message } from "@/store/useCollaborationStore";
@@ -72,6 +72,10 @@ export default function CollaborationDetailScreen() {
     } catch (error) {
       return "recently";
     }
+  };
+  
+  const handleBackPress = () => {
+    router.back();
   };
   
   const handleSendMessage = () => {
@@ -154,13 +158,34 @@ export default function CollaborationDetailScreen() {
   if (!space) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Collaboration space not found</Text>
+        <View style={styles.navigationHeader}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <ArrowLeft size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.navigationTitle}>Collaboration Space</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Collaboration space not found</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Navigation Header */}
+      <View style={styles.navigationHeader}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.navigationTitle} numberOfLines={1}>
+          {space.title}
+        </Text>
+        <TouchableOpacity style={styles.shareButton}>
+          <Share2 size={20} color={Colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -535,5 +560,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
     marginTop: 12,
+  },
+  navigationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    paddingTop: 20,
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  navigationTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: Colors.text,
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  shareButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
 });

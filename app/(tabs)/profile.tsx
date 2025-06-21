@@ -3,10 +3,47 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Settings, Edit, LogOut, ChevronRight, Award, Briefcase, BookOpen, Bell, Share2, Download } from "lucide-react-native";
 import Colors from "../../constants/colors";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUserStore } from "@/store/useUserStore";
+import { useRouter } from "expo-router";
+import { createNavigation } from "@/utils/navigation";
 
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState("profile");
+  const router = useRouter();
+  
+  // Get user data from store
+  const { 
+    isLoggedIn, 
+    userId,
+    name, 
+    email, 
+    university, 
+    studyField,
+    logout
+  } = useUserStore();
+  
+  // Log user data when the component mounts
+  useEffect(() => {
+    console.log("Profile screen - Current user data:", {
+      isLoggedIn,
+      userId,
+      name,
+      email,
+      university: university?.name,
+      studyField
+    });
+  }, [isLoggedIn, userId, name, email, university, studyField]);
+  
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.replace(createNavigation("auth/login"));
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
@@ -26,8 +63,11 @@ export default function ProfileScreen() {
           <Edit size={16} color="#FFFFFF" />
         </TouchableOpacity>
         
-        <Text style={styles.profileName}>Thabo Mbeki</Text>
-        <Text style={styles.profileBio}>Computer Science Student at University of Cape Town</Text>
+        <Text style={styles.profileName}>{name || "User"}</Text>
+        <Text style={styles.profileBio}>
+          {studyField ? `${studyField} Student at ` : "Student at "}
+          {university ? university.name : "University"}
+        </Text>
       </View>
       
       <View style={styles.tabsContainer}>
@@ -74,8 +114,8 @@ export default function ProfileScreen() {
                   <BookOpen size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.educationContent}>
-                  <Text style={styles.educationDegree}>BSc Computer Science</Text>
-                  <Text style={styles.educationSchool}>University of Cape Town</Text>
+                  <Text style={styles.educationDegree}>{studyField || "BSc Computer Science"}</Text>
+                  <Text style={styles.educationSchool}>{university ? university.name : "University"}</Text>
                   <Text style={styles.educationPeriod}>2020 - Present</Text>
                 </View>
               </View>
@@ -148,7 +188,7 @@ export default function ProfileScreen() {
                 <ChevronRight size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.logoutButton}>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                 <LogOut size={20} color={Colors.error} />
                 <Text style={styles.logoutText}>Log Out</Text>
               </TouchableOpacity>

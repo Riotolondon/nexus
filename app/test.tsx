@@ -1,28 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
-import { signInUser, signOutUser, getCurrentUser, subscribeToAuthChanges } from '@/utils/localAuthService';
+import { useUserStore } from '@/store/useUserStore';
 import { useRouter } from 'expo-router';
 
 export default function TestScreen() {
-  const [user, setUser] = useState<any>(null);
   const [message, setMessage] = useState('');
   const router = useRouter();
-
-  useEffect(() => {
-    // Subscribe to auth changes
-    const unsubscribe = subscribeToAuthChanges((currentUser) => {
-      setUser(currentUser);
-      setMessage(`Auth state changed: ${currentUser ? 'logged in' : 'logged out'}`);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { login, logout, getUser, isUserLoggedIn } = useUserStore();
+  
+  const user = getUser();
+  const isLoggedIn = isUserLoggedIn();
 
   const handleLogin = async () => {
     try {
       setMessage('Logging in...');
-      await signInUser('test@example.com', 'password');
-      setMessage('Login successful');
+      const success = await login('test@example.com', 'password');
+      if (success) {
+        setMessage('Login successful');
+      } else {
+        setMessage('Login failed');
+      }
     } catch (error) {
       setMessage(`Login error: ${error}`);
     }
@@ -31,7 +28,7 @@ export default function TestScreen() {
   const handleLogout = async () => {
     try {
       setMessage('Logging out...');
-      await signOutUser();
+      await logout();
       setMessage('Logout successful');
     } catch (error) {
       setMessage(`Logout error: ${error}`);
@@ -47,21 +44,23 @@ export default function TestScreen() {
       <Text style={styles.title}>Auth Test Screen</Text>
       
       <Text style={styles.status}>
-        Status: {user ? 'Logged In' : 'Logged Out'}
+        Status: {isLoggedIn ? 'Logged In' : 'Logged Out'}
       </Text>
       
       {user && (
         <View style={styles.userInfo}>
           <Text>User Email: {user.email}</Text>
-          <Text>User Name: {user.displayName}</Text>
+          <Text>User Name: {user.name}</Text>
+          <Text>University: {user.university?.name || 'None'}</Text>
+          <Text>Interests: {user.interests.join(', ') || 'None'}</Text>
         </View>
       )}
       
       <Text style={styles.message}>{message}</Text>
       
       <View style={styles.buttonContainer}>
-        <Button title="Login" onPress={handleLogin} disabled={!!user} />
-        <Button title="Logout" onPress={handleLogout} disabled={!user} />
+        <Button title="Login" onPress={handleLogin} disabled={isLoggedIn} />
+        <Button title="Logout" onPress={handleLogout} disabled={!isLoggedIn} />
         <Button title="Navigate Home" onPress={handleNavigate} />
       </View>
     </View>

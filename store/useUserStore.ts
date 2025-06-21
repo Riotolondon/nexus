@@ -1,342 +1,262 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { 
-  registerUser, 
-  signInUser, 
-  signOutUser, 
-  getCurrentUser, 
-  subscribeToAuthChanges,
-  resetPassword,
-  FirebaseUser
-} from "../utils/authService";
-import { 
-  setDocument, 
-  getDocument, 
-  updateDocument,
-  deleteDocument,
-  DocumentData
-} from "../utils/firestoreService";
-import { Platform } from "react-native";
 
-type University = {
+export interface University {
   id: string;
   name: string;
-};
-
-interface UserData extends DocumentData {
-  name?: string;
-  email?: string;
-  university?: University;
-  studyField?: string;
-  yearOfStudy?: number;
-  profilePicture?: string;
-  interests?: string[];
+  logo: string;
+  color: string;
 }
 
-type UserState = {
-  isLoggedIn: boolean;
+export interface User {
+  userId: string;
+  name: string;
+  email: string;
+  university: University | null;
+  interests: string[];
+  profileImage?: string | null;
+  bio?: string | null;
+  studyLevel?: string | null;
+  fieldOfStudy?: string | null;
+  joinedAt: string;
+}
+
+interface UserState {
+  // User data
   userId: string | null;
   name: string | null;
   email: string | null;
   university: University | null;
-  studyField: string | null;
-  yearOfStudy: number | null;
-  profilePicture: string | null;
   interests: string[];
+  profileImage: string | null;
+  bio: string | null;
+  studyLevel: string | null;
+  fieldOfStudy: string | null;
+  joinedAt: string | null;
+  isLoggedIn: boolean;
   
-  // Authentication methods
-  register: (email: string, password: string, name: string, university: University) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  // Actions
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: {
+    email: string;
+    password: string;
+    name: string;
+    university: University;
+    interests: string[];
+    studyLevel?: string;
+    fieldOfStudy?: string;
+    bio?: string;
+  }) => Promise<boolean>;
   logout: () => Promise<void>;
-  deleteAccount: (password: string) => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+  setInterests: (interests: string[]) => void;
+  deleteAccount: (password: string) => Promise<boolean>;
+  resetPassword: (email: string) => Promise<boolean>;
   
-  // Profile methods
-  updateProfile: (profileData: Partial<Omit<UserState, "isLoggedIn" | "login" | "logout" | "updateProfile" | "addInterest" | "removeInterest" | "register" | "deleteAccount">>) => Promise<void>;
-  addInterest: (interest: string) => Promise<void>;
-  removeInterest: (interest: string) => Promise<void>;
-  
-  // Auth state
-  initializeAuthListener: () => () => void;
-  loadUserData: (userId: string) => Promise<void>;
-};
+  // Helper methods
+  getUser: () => User | null;
+  isUserLoggedIn: () => boolean;
+}
 
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
-      isLoggedIn: false,
+      // Initial state
       userId: null,
       name: null,
       email: null,
       university: null,
-      studyField: null,
-      yearOfStudy: null,
-      profilePicture: null,
       interests: [],
-      
-      // Register a new user
-      register: async (email, password, name, university) => {
-        let user = null;
+      profileImage: null,
+      bio: null,
+      studyLevel: null,
+      fieldOfStudy: null,
+      joinedAt: null,
+      isLoggedIn: false,
+
+      // Mock login - always succeeds
+      login: async (email: string, password: string) => {
+        console.log("Mock login with:", email);
         
-        try {
-          console.log("Register function called with:", { email, name, university: university.name });
-          
-          // Step 1: Register with Firebase Auth
-          console.log("Calling registerUser function from authService...");
-          try {
-            user = await registerUser(email, password, name);
-            console.log("Firebase Auth registration successful:", user?.uid);
-          } catch (authError: any) {
-            console.error("Firebase Auth registration failed:", authError);
-            throw authError;
-          }
-          
-          if (!user) {
-            const error = new Error("Registration failed: No user returned");
-            console.error(error);
-            throw error;
-          }
-          
-          // Step 2: Create user profile in Firestore
-          console.log("Creating user profile in Firestore...");
-          try {
-            await setDocument('users', user.uid, {
-              name,
-              email,
-              university,
-              createdAt: new Date(),
-            });
-            console.log("Firestore document created successfully");
-          } catch (firestoreError: any) {
-            console.error("Error creating Firestore document:", firestoreError);
-            // We don't throw here to allow the user to be created even if Firestore fails
-            // The profile can be updated later
-          }
-          
-          // Step 3: Update local state
-          console.log("Updating local state...");
-          set({
-            isLoggedIn: true,
-            userId: user.uid,
-            name,
-            email,
-            university,
-            studyField: null,
-            yearOfStudy: null,
-            profilePicture: null,
-            interests: [],
-          });
-          
-          console.log("Registration process completed successfully");
-        } catch (error: any) {
-          console.error('Registration error in useUserStore:', error);
-          throw error;
-        }
-      },
-      
-      // Login existing user
-      login: async (email, password) => {
-        try {
-          const user = await signInUser(email, password);
-          if (user) {
-            // Load user data from Firestore
-            await get().loadUserData(user.uid);
-          }
-        } catch (error) {
-          console.error('Login error:', error);
-          throw error;
-        }
-      },
-      
-      // Load user data from Firestore
-      loadUserData: async (userId) => {
-        try {
-          console.log("Loading user data for:", userId);
-          const userData = await getDocument('users', userId) as UserData;
-          
-          if (userData) {
-            console.log("User data found in Firestore");
-            set({
-              isLoggedIn: true,
-              userId,
-              name: userData.name || null,
-              email: userData.email || null,
-              university: userData.university || null,
-              studyField: userData.studyField || null,
-              yearOfStudy: userData.yearOfStudy || null,
-              profilePicture: userData.profilePicture || null,
-              interests: userData.interests || [],
-            });
-          } else {
-            // User exists in Auth but not in Firestore
-            console.log("User exists in Auth but not in Firestore, creating basic profile");
-            const authUser = getCurrentUser();
-            if (authUser) {
-              // Create a basic profile for the user
-              await setDocument('users', userId, {
-                name: authUser.displayName || null,
-                email: authUser.email || null,
-                createdAt: new Date(),
-              });
-              
-              // Set basic user data in state
-              set({
-                isLoggedIn: true,
-                userId,
-                name: authUser.displayName || null,
-                email: authUser.email || null,
-                university: null,
-                studyField: null,
-                yearOfStudy: null,
-                profilePicture: null,
-                interests: [],
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error loading user data:', error);
-          throw error;
-        }
-      },
-      
-      // Logout user
-      logout: async () => {
-        try {
-          console.log("Logout function called in user store");
-          // Attempt to sign out from Firebase
-          console.log("Attempting to sign out from Firebase");
-          await signOutUser();
-          console.log("Firebase sign out successful");
-        } catch (error) {
-          console.error('Logout error in store:', error);
-          // Continue with logout even if Firebase logout fails
-        } finally {
-          // Always clear the local state
-          console.log("Clearing local state");
-          set({
-            isLoggedIn: false,
-            userId: null,
-            name: null,
-            email: null,
-            university: null,
-            studyField: null,
-            yearOfStudy: null,
-            profilePicture: null,
-            interests: [],
-          });
-          console.log("Local state cleared");
-          
-          // Clear AsyncStorage to ensure complete logout
-          try {
-            AsyncStorage.removeItem("solus-nexus-user-storage");
-            console.log("AsyncStorage cleared");
-          } catch (e) {
-            console.error("Error clearing AsyncStorage:", e);
-          }
-          
-          console.log("Logout complete - navigation should be handled by component");
-        }
-      },
-      
-      // Delete user account
-      deleteAccount: async (password) => {
-        try {
-          const { userId } = get();
-          if (!userId) throw new Error('User not authenticated');
-          
-          // Delete user data from Firestore
-          await deleteDocument('users', userId);
-          
-          // Delete Firebase Auth user
-          await resetPassword(password);
-          
-          // Clear local state
-          set({
-            isLoggedIn: false,
-            userId: null,
-            name: null,
-            email: null,
-            university: null,
-            studyField: null,
-            yearOfStudy: null,
-            profilePicture: null,
-            interests: [],
-          });
-        } catch (error) {
-          console.error('Delete account error:', error);
-          throw error;
-        }
-      },
-      
-      // Update user profile
-      updateProfile: async (profileData) => {
-        const { userId } = get();
-        if (!userId) return;
-        
-        try {
-          await updateDocument('users', userId, profileData);
-          set((state) => ({ ...state, ...profileData }));
-        } catch (error) {
-          console.error('Update profile error:', error);
-          throw error;
-        }
-      },
-      
-      // Add interest
-      addInterest: async (interest) => {
-        const { userId, interests } = get();
-        if (!userId) return;
-        
-        try {
-          const updatedInterests = [...interests, interest];
-          await updateDocument('users', userId, { interests: updatedInterests });
-          set((state) => ({
-            interests: updatedInterests,
-          }));
-        } catch (error) {
-          console.error('Add interest error:', error);
-          throw error;
-        }
-      },
-      
-      // Remove interest
-      removeInterest: async (interest) => {
-        const { userId, interests } = get();
-        if (!userId) return;
-        
-        try {
-          const updatedInterests = interests.filter((i) => i !== interest);
-          await updateDocument('users', userId, { interests: updatedInterests });
-          set((state) => ({
-            interests: updatedInterests,
-          }));
-        } catch (error) {
-          console.error('Remove interest error:', error);
-          throw error;
-        }
-      },
-      
-      // Initialize auth state listener
-      initializeAuthListener: () => {
-        const unsubscribe = subscribeToAuthChanges(async (user) => {
-          if (user) {
-            await get().loadUserData(user.uid);
-          } else {
-            set({
-              isLoggedIn: false,
-              userId: null,
-              name: null,
-              email: null,
-              university: null,
-              studyField: null,
-              yearOfStudy: null,
-              profilePicture: null,
-              interests: [],
-            });
-          }
+        // Create mock user
+        const mockUser = {
+          userId: `mock-${Date.now()}`,
+          name: "Test User",
+          email: email,
+          university: {
+            id: "1",
+            name: "University of Cape Town",
+            logo: "https://example.com/logo.png",
+            color: "#007bff"
+          },
+          interests: ["Computer Science", "Technology"],
+          profileImage: null,
+          bio: "Test user for development",
+          studyLevel: "Undergraduate",
+          fieldOfStudy: "Computer Science",
+          joinedAt: new Date().toISOString()
+        };
+
+        set({
+          userId: mockUser.userId,
+          name: mockUser.name,
+          email: mockUser.email,
+          university: mockUser.university,
+          interests: mockUser.interests,
+          profileImage: mockUser.profileImage,
+          bio: mockUser.bio,
+          studyLevel: mockUser.studyLevel,
+          fieldOfStudy: mockUser.fieldOfStudy,
+          joinedAt: mockUser.joinedAt,
+          isLoggedIn: true,
         });
+
+        console.log("Mock login successful");
+        return true;
+      },
+
+      // Mock registration - always succeeds
+      register: async (userData) => {
+        console.log("Mock registration with:", userData.email);
         
-        return unsubscribe;
+        const mockUser = {
+          userId: `mock-${Date.now()}`,
+          name: userData.name,
+          email: userData.email,
+          university: userData.university,
+          interests: userData.interests,
+          profileImage: null,
+          bio: userData.bio || "New user",
+          studyLevel: userData.studyLevel || "Undergraduate",
+          fieldOfStudy: userData.fieldOfStudy || "General",
+          joinedAt: new Date().toISOString()
+        };
+
+        set({
+          userId: mockUser.userId,
+          name: mockUser.name,
+          email: mockUser.email,
+          university: mockUser.university,
+          interests: mockUser.interests,
+          profileImage: mockUser.profileImage,
+          bio: mockUser.bio,
+          studyLevel: mockUser.studyLevel,
+          fieldOfStudy: mockUser.fieldOfStudy,
+          joinedAt: mockUser.joinedAt,
+          isLoggedIn: true,
+        });
+
+        console.log("Mock registration successful");
+        return true;
+      },
+
+      // Logout
+      logout: async () => {
+        console.log("Logging out user");
+        
+        try {
+          // Clear AsyncStorage
+          console.log("Clearing local storage");
+          AsyncStorage.removeItem("solus-nexus-user-storage");
+          console.log("Local storage cleared");
+        } catch (e) {
+          console.error("Error clearing local storage:", e);
+        }
+
+        // Reset state
+        set({
+          userId: null,
+          name: null,
+          email: null,
+          university: null,
+          interests: [],
+          profileImage: null,
+          bio: null,
+          studyLevel: null,
+          fieldOfStudy: null,
+          joinedAt: null,
+          isLoggedIn: false,
+        });
+
+        console.log("Logout completed");
+      },
+
+      // Update profile
+      updateProfile: async (updates) => {
+        console.log("Updating profile with:", updates);
+        
+        set((state) => ({
+          ...state,
+          ...updates,
+        }));
+
+        console.log("Profile updated successfully");
+      },
+
+      // Set interests
+      setInterests: (interests) => {
+        set({ interests });
+      },
+
+      // Mock delete account - always succeeds
+      deleteAccount: async (password: string) => {
+        console.log("Mock delete account");
+        
+        // Clear storage
+        try {
+          AsyncStorage.removeItem("solus-nexus-user-storage");
+        } catch (e) {
+          console.error("Error clearing storage:", e);
+        }
+
+        // Reset state
+        set({
+          userId: null,
+          name: null,
+          email: null,
+          university: null,
+          interests: [],
+          profileImage: null,
+          bio: null,
+          studyLevel: null,
+          fieldOfStudy: null,
+          joinedAt: null,
+          isLoggedIn: false,
+        });
+
+        return true;
+      },
+
+      // Mock reset password - always succeeds
+      resetPassword: async (email: string) => {
+        console.log("Mock reset password for:", email);
+        return true;
+      },
+
+      // Helper methods
+      getUser: () => {
+        const state = get();
+        if (!state.isLoggedIn || !state.userId) {
+          return null;
+        }
+        
+        return {
+          userId: state.userId,
+          name: state.name || "",
+          email: state.email || "",
+          university: state.university,
+          interests: state.interests,
+          profileImage: state.profileImage,
+          bio: state.bio,
+          studyLevel: state.studyLevel,
+          fieldOfStudy: state.fieldOfStudy,
+          joinedAt: state.joinedAt || new Date().toISOString(),
+        };
+      },
+
+      isUserLoggedIn: () => {
+        return get().isLoggedIn;
       },
     }),
     {
