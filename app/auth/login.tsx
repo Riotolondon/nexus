@@ -14,35 +14,29 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Colors from "../../constants/colors";
-import { useUserStore } from "../../store/useUserStore";
+import { useSupabaseUserStore } from "../../store/useSupabaseUserStore";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { login } = useUserStore();
+  const { signIn } = useSupabaseUserStore();
 
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
-
+  
     setIsLoading(true);
     try {
-      console.log("Attempting to login with:", email);
-      const success = await login(email, password);
-      
+      const success = await signIn(email, password);
       if (success) {
-        console.log("Login successful, navigating to main app");
         router.replace("/(tabs)");
-      } else {
-        Alert.alert("Error", "Login failed");
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      Alert.alert("Error", "Login failed. Please try again.");
+      Alert.alert("Error", error.message);
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +114,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    top: 0,
+    top: 0, 
     bottom: 0,
   },
   scrollContent: {

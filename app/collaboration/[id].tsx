@@ -202,7 +202,7 @@ export default function CollaborationDetailScreen() {
           
           <View style={styles.tagsContainer}>
             {space.tags.map((tag, index) => (
-              <View key={index} style={styles.tag}>
+              <View key={`collaboration-space-tag-${index}-${tag}`} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}

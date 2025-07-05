@@ -55,7 +55,7 @@ export default function CareerCard({
       
       <View style={styles.requirementsContainer}>
         {requirements.map((req, index) => (
-          <View key={index} style={styles.requirementTag}>
+          <View key={`career-req-${index}-${req}`} style={styles.requirementTag}>
             <Text style={styles.requirementText}>{req}</Text>
           </View>
         ))}

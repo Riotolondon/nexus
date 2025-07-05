@@ -71,7 +71,7 @@ export default function ResourceDetailScreen() {
         <Text style={styles.sectionTitle}>Contents</Text>
         <View style={styles.contentsList}>
           {[1, 2, 3, 4, 5].map((item) => (
-            <View key={item} style={styles.contentItem}>
+            <View key={`academic-content-${id}-${item}`} style={styles.contentItem}>
               <Text style={styles.contentNumber}>{item}</Text>
               <Text style={styles.contentText}>Chapter {item}: Example Content Section</Text>
             </View>

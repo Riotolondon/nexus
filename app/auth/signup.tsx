@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Colors from "../../constants/colors";
-import { useUserStore } from "../../store/useUserStore";
+import { useSupabaseUserStore } from "../../store/useSupabaseUserStore";
 import { universities } from "../../constants/universities";
 
 export default function SignUp() {
@@ -24,35 +24,41 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { register } = useUserStore();
+  const { signUp } = useSupabaseUserStore();
 
   const handleSignUp = async () => {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
-
+  
     if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
-
+  
     if (password.length < 6) {
       Alert.alert("Error", "Password must be at least 6 characters");
       return;
     }
-
+  
     setIsLoading(true);
     try {
       console.log("Attempting to register with:", email);
-      const success = await register({
+      
+      // Use the UUID directly from the universities array
+      // This will be a proper UUID format that matches what's in the database
+      const university_id = universities[0].uuid;
+      console.log("Using university_id:", university_id);
+      
+      const success = await signUp({
         email,
         password,
         name,
-        university: universities[0], // Default to first university
+        university_id,
+        study_level: "undergraduate",
+        field_of_study: "General",
         interests: [],
-        studyLevel: "Undergraduate",
-        fieldOfStudy: "General",
         bio: "New user"
       });
       
@@ -63,8 +69,8 @@ export default function SignUp() {
         Alert.alert("Error", "Registration failed");
       }
     } catch (error: any) {
-      console.error("Registration error:", error);
-      Alert.alert("Error", "Registration failed. Please try again.");
+      console.error("Registration error:", error.message);
+      Alert.alert("Error", error.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }

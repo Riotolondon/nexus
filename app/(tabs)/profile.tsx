@@ -19,7 +19,7 @@ export default function ProfileScreen() {
     name, 
     email, 
     university, 
-    studyField,
+    fieldOfStudy,
     logout
   } = useUserStore();
   
@@ -31,9 +31,9 @@ export default function ProfileScreen() {
       name,
       email,
       university: university?.name,
-      studyField
+      fieldOfStudy
     });
-  }, [isLoggedIn, userId, name, email, university, studyField]);
+  }, [isLoggedIn, userId, name, email, university, fieldOfStudy]);
   
   // Handle logout
   const handleLogout = async () => {
@@ -65,7 +65,7 @@ export default function ProfileScreen() {
         
         <Text style={styles.profileName}>{name || "User"}</Text>
         <Text style={styles.profileBio}>
-          {studyField ? `${studyField} Student at ` : "Student at "}
+          {fieldOfStudy ? `${fieldOfStudy} Student at ` : "Student at "}
           {university ? university.name : "University"}
         </Text>
       </View>
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
                   <BookOpen size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.educationContent}>
-                  <Text style={styles.educationDegree}>{studyField || "BSc Computer Science"}</Text>
+                  <Text style={styles.educationDegree}>{fieldOfStudy || "BSc Computer Science"}</Text>
                   <Text style={styles.educationSchool}>{university ? university.name : "University"}</Text>
                   <Text style={styles.educationPeriod}>2020 - Present</Text>
                 </View>
@@ -254,7 +254,7 @@ export default function ProfileScreen() {
                   { title: "Web Development", issuer: "Wits University", date: "August 2022", image: "https://images.unsplash.com/photo-1547658719-da2b51169166?q=80&w=2564&auto=format&fit=crop" },
                   { title: "Project Management", issuer: "UNISA", date: "January 2023", image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=2940&auto=format&fit=crop" }
                 ].map((certificate, index) => (
-                  <TouchableOpacity key={index} style={styles.certificateCard}>
+                  <TouchableOpacity key={`certificate-${index}-${certificate.title}`} style={styles.certificateCard}>
                     <Image source={{ uri: certificate.image }} style={styles.certificateImage} />
                     <View style={styles.certificateContent}>
                       <Text style={styles.certificateTitle}>{certificate.title}</Text>
@@ -277,7 +277,7 @@ export default function ProfileScreen() {
                   { name: "Project Management", level: "Beginner", verified: false },
                   { name: "Communication", level: "Intermediate", verified: true }
                 ].map((skill, index) => (
-                  <View key={index} style={styles.skillItem}>
+                  <View key={`skill-${index}-${skill.name}`} style={styles.skillItem}>
                     <View>
                       <Text style={styles.skillName}>{skill.name}</Text>
                       <Text style={styles.skillLevel}>{skill.level}</Text>

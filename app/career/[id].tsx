@@ -79,7 +79,7 @@ export default function CareerDetailScreen() {
         <Text style={styles.sectionTitle}>Requirements</Text>
         <View style={styles.requirementsList}>
           {opportunity.requirements.map((req, index) => (
-            <View key={index} style={styles.requirementItem}>
+            <View key={`career-requirement-${index}-${req}`} style={styles.requirementItem}>
               <View style={styles.bulletPoint} />
               <Text style={styles.requirementText}>{req}</Text>
             </View>
